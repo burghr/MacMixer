@@ -1,8 +1,8 @@
-<p align="center">
-  <img src="MacMixer/Icon/MacMixer-preview.png" width="128" alt="MacMixer icon">
-</p>
-
 <h1 align="center">MacMixer</h1>
+
+<p align="center">
+  <img src="docs/screenshot.png" width="360" alt="MacMixer menu bar popover">
+</p>
 
 <p align="center">
   A lightweight macOS menu bar <b>per-app volume mixer</b> — built on Core Audio
