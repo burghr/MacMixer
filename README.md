@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  A lightweight macOS menu bar <b>per-app volume mixer</b> — built on Core Audio
+  A lightweight macOS menu bar <b>per-app volume mixer</b>, built on Core Audio
   process taps, so there's <b>no audio driver to install</b> and <b>no microphone
   indicator</b>.
 </p>
@@ -17,18 +17,18 @@
 MacMixer lives in your menu bar and gives you a volume slider for **each running
 app**, plus a master volume and an output-device picker:
 
-- **Per-app volume** — independent 0–200% slider for every app that's playing
+- **Per-app volume** - independent 0–200% slider for every app that's playing
   audio. Above 100% boosts; a bolt icon and orange tint show when an app is
   boosted. Slider snaps to 100% (the app's normal level).
-- **Master volume + mute** — controls the selected output device's hardware
+- **Master volume + mute** - controls the selected output device's hardware
   volume, so it affects everything.
-- **Output picker** — switch the system output device from the menu, with an
+- **Output picker** - switch the system output device from the menu, with an
   icon that reflects the device type (AirPods, headphones, speaker, display).
-- **Follow new devices** — when you connect AirPods or headphones, MacMixer
+- **Follow new devices** - when you connect AirPods or headphones, MacMixer
   switches to them automatically (displays are ignored).
-- **Hide apps** — hide apps you don't care about (utilities like Finder and
+- **Hide apps** - hide apps you don't care about (utilities like Finder and
   Terminal are hidden by default); your choices are remembered.
-- **Resizable** — drag the bottom edge to make the app list taller; the size is
+- **Resizable** - drag the bottom edge to make the app list taller; the size is
   remembered.
 
 ## Why this exists
@@ -36,22 +36,22 @@ app**, plus a master volume and an output-device picker:
 macOS has no public API to set another app's output volume. The well-known
 solution, [Background Music](https://github.com/kyleneideck/BackgroundMusic),
 is great it ships a **virtual audio driver** and captures audio by reading it back through a
-virtual *input* stream — Unfortunately macOS classifies this as microphone use, so it
+virtual *input* stream. Unfortunately macOS classifies this as microphone use, so it
 permanently lights the **orange microphone indicator**, requires Microphone
 permission, and needs a `sudo` driver install.
 
 macOS 14.2 added a first-class **Core Audio process-tap API**
 (`CATapDescription` + `AudioHardwareCreateProcessTap`). MacMixer is built on it:
 
-- **No virtual driver** — nothing installed in `/Library/Audio/Plug-Ins`, no
+- **No virtual driver** - nothing installed in `/Library/Audio/Plug-Ins`, no
   `sudo`, no `coreaudiod` restart. Just an app.
-- **No microphone indicator** — a process tap is not classified as microphone
+- **No microphone indicator** - a process tap is not classified as microphone
   input, so the orange mic dot never appears.
 
 ## Requirements
 
 - **macOS 14.2 or later** (developed on macOS 26)
-- Nothing else to run it — the app links only system frameworks and the Swift
+- Nothing else to run it. The app links only system frameworks and the Swift
   runtime that ships with macOS. (Xcode is only needed to build from source.)
 
 ## Install (no Xcode)
@@ -71,7 +71,7 @@ macOS 14.2 added a first-class **Core Audio process-tap API**
      xattr -dr com.apple.quarantine /Applications/MacMixer.app
      ```
 3. Click the menu bar icon. The first time it controls an app, macOS asks to allow
-   **audio recording** — grant it (see [Permissions](#permissions)).
+   **audio recording** - grant it (see [Permissions](#permissions)).
 
 ## Build from source
 
@@ -84,7 +84,7 @@ open -a MacMixer
 ```
 
 Requires **Xcode 15+**. The Xcode project is generated from `project.rb` (via the
-[xcodeproj](https://github.com/CocoaPods/Xcodeproj) gem) and is git-ignored — the
+[xcodeproj](https://github.com/CocoaPods/Xcodeproj) gem) and is git-ignored. The
 Swift sources are the source of truth. The app is ad-hoc signed
 ("Sign to Run Locally").
 
@@ -92,7 +92,7 @@ Swift sources are the source of truth. The app is ad-hoc signed
 
 The first time MacMixer taps an app, macOS asks for permission to **record audio**
 from your Mac. This is required: changing an app's volume means capturing its
-audio, applying gain, and playing it back — and macOS treats capturing another
+audio, applying gain, and playing it back, and macOS treats capturing another
 app's audio as recording. It is **not** microphone access (no orange mic dot),
 and MacMixer never touches your microphone. You can manage it in
 **System Settings → Privacy & Security**.
@@ -100,7 +100,7 @@ and MacMixer never touches your microphone. You can manage it in
 ## How it works
 
 For each app you control, MacMixer creates a private process tap with
-`CATapMutedWhenTapped` — the app's own output is muted only while we're reading
+`CATapMutedWhenTapped`: the app's own output is muted only while we're reading
 it. All taps plus the chosen output device are combined into one **private
 aggregate device**, clocked by the output, and a single realtime callback mixes
 every tap into the output with per-app gain applied. Because the aggregate
