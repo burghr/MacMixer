@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>MacMixer</string>
+    <key>CFBundleDisplayName</key>
+    <string>MacMixer</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.macmixer.app</string>
+    <key>CFBundleExecutable</key>
+    <string>MacMixer</string>
+    <key>CFBundleIconFile</key>
+    <string>MacMixer</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>2.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.2</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 burghr. MIT License.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>MacMixer taps each app's audio output so it can apply per-app volume.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>MacMixer does not record the microphone; this is a fallback string only.</string>
+</dict>
+</plist>
