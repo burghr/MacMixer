@@ -25,7 +25,7 @@ icns = group.new_file('MacMixer.icns')
 target.resources_build_phase.add_file_reference(icns)
 
 # System frameworks (AppKit/SwiftUI auto-link via import, but be explicit).
-target.add_system_framework(%w[CoreAudio AudioToolbox AppKit SwiftUI])
+target.add_system_framework(%w[CoreAudio AudioToolbox AppKit SwiftUI ServiceManagement])
 
 target.build_configurations.each do |config|
   s = config.build_settings

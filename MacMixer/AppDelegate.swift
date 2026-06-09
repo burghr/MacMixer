@@ -58,6 +58,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showContextMenu() {
         let menu = NSMenu()
 
+        let login = NSMenuItem(title: "Open at Login",
+                               action: #selector(toggleLoginItem),
+                               keyEquivalent: "")
+        login.target = self
+        login.state = LoginItem.isEnabled ? .on : .off
+        menu.addItem(login)
+
         let privacy = NSMenuItem(title: "Privacy Settings…",
                                  action: #selector(openPrivacyPrefs),
                                  keyEquivalent: "")
@@ -75,6 +82,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
         statusItem.button?.performClick(nil)
         DispatchQueue.main.async { [weak self] in self?.statusItem.menu = nil }
+    }
+
+    @objc private func toggleLoginItem() {
+        LoginItem.setEnabled(!LoginItem.isEnabled)
     }
 
     @objc private func openPrivacyPrefs() {
