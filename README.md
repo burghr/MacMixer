@@ -35,8 +35,8 @@ app**, plus a master volume and an output-device picker:
 
 macOS has no public API to set another app's output volume. The well-known
 solution, [Background Music](https://github.com/kyleneideck/BackgroundMusic),
-ships a **virtual audio driver** and captures audio by reading it back through a
-virtual *input* stream — which macOS classifies as microphone use, so it
+is great it ships a **virtual audio driver** and captures audio by reading it back through a
+virtual *input* stream — Unfortunately macOS classifies this as microphone use, so it
 permanently lights the **orange microphone indicator**, requires Microphone
 permission, and needs a `sudo` driver install.
 
