@@ -51,18 +51,39 @@ macOS 14.2 added a first-class **Core Audio process-tap API**
 ## Requirements
 
 - **macOS 14.2 or later** (developed on macOS 26)
-- Xcode 15+ to build
+- Nothing else to run it — the app links only system frameworks and the Swift
+  runtime that ships with macOS. (Xcode is only needed to build from source.)
 
-## Build & install
+## Install (no Xcode)
+
+1. Download `MacMixer.zip` from the
+   [latest release](https://github.com/burghr/MacMixer/releases/latest), unzip it,
+   and drag **MacMixer.app** into `/Applications`.
+2. MacMixer isn't notarized (it's an ad-hoc-signed personal project), so macOS
+   Gatekeeper blocks it the first time. To allow it:
+   - **macOS 15 (Sequoia) or later:** double-click MacMixer (it gets blocked),
+     then open **System Settings → Privacy & Security**, scroll to
+     *"MacMixer was blocked…"*, and click **Open Anyway**.
+   - **macOS 14 (Sonoma):** right-click (Control-click) MacMixer → **Open** →
+     **Open**.
+   - **Or in Terminal (any version):**
+     ```sh
+     xattr -dr com.apple.quarantine /Applications/MacMixer.app
+     ```
+3. Click the menu bar icon. The first time it controls an app, macOS asks to allow
+   **audio recording** — grant it (see [Permissions](#permissions)).
+
+## Build from source
 
 ```sh
 git clone https://github.com/burghr/MacMixer.git
 cd MacMixer
-./build.sh        # generates the Xcode project, builds Release, installs to /Applications
+gem install xcodeproj   # one-time; build.sh uses it to generate the project
+./build.sh              # generates the Xcode project, builds Release, installs to /Applications
 open -a MacMixer
 ```
 
-The Xcode project is generated from `project.rb` (via the
+Requires **Xcode 15+**. The Xcode project is generated from `project.rb` (via the
 [xcodeproj](https://github.com/CocoaPods/Xcodeproj) gem) and is git-ignored — the
 Swift sources are the source of truth. The app is ad-hoc signed
 ("Sign to Run Locally").
