@@ -171,14 +171,19 @@ struct DeviceVolume {
         self.deviceID = deviceID
         let scope = kAudioObjectPropertyScopeOutput
 
-        // Prefer the main element; fall back to channels 1/2.
+        // Prefer the main element; fall back to channels 1/2. A property that
+        // exists but isn't settable is useless for a slider, so require both.
+        func controllable(_ addr: AudioObjectPropertyAddress) -> Bool {
+            CA.has(deviceID, addr) && CA.isSettable(deviceID, addr)
+        }
+
         var volElems: [AudioObjectPropertyElement] = []
         let mainVol = CA.address(kAudioDevicePropertyVolumeScalar, scope, CA.mainElement)
-        if CA.has(deviceID, mainVol) {
+        if controllable(mainVol) {
             volElems = [CA.mainElement]
         } else {
             for ch in [AudioObjectPropertyElement(1), AudioObjectPropertyElement(2)] {
-                if CA.has(deviceID, CA.address(kAudioDevicePropertyVolumeScalar, scope, ch)) {
+                if controllable(CA.address(kAudioDevicePropertyVolumeScalar, scope, ch)) {
                     volElems.append(ch)
                 }
             }
@@ -186,7 +191,7 @@ struct DeviceVolume {
         self.volumeElements = volElems
 
         let mainMute = CA.address(kAudioDevicePropertyMute, scope, CA.mainElement)
-        self.muteElement = CA.has(deviceID, mainMute) ? CA.mainElement : nil
+        self.muteElement = controllable(mainMute) ? CA.mainElement : nil
     }
 
     var hasVolume: Bool { !volumeElements.isEmpty }

@@ -91,12 +91,19 @@ final class MixerModel: ObservableObject {
     // MARK: Lifecycle
 
     func start() {
+        attemptEngineStart()
+        // Poll even if the engine failed to start (e.g. no output device yet):
+        // the timer retries until a device shows up.
+        startPolling()
+    }
+
+    private func attemptEngineStart() {
         do {
             try engine.start()
             running = true
+            startupError = nil
             knownDeviceIDs = Set(engine.outputDevices().map(\.id))
             refreshAll()
-            startPolling()
         } catch {
             startupError = error.localizedDescription
         }
@@ -118,7 +125,10 @@ final class MixerModel: ObservableObject {
     private func startPolling() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refreshAll() }
+            Task { @MainActor in
+                guard let self else { return }
+                if self.running { self.refreshAll() } else { self.attemptEngineStart() }
+            }
         }
     }
 
@@ -131,10 +141,21 @@ final class MixerModel: ObservableObject {
         let ids = Set(devices.map(\.id))
         let added = ids.subtracting(knownDeviceIDs)
         // Switch to a newly-connected non-display device (e.g. AirPods).
+        var followedNewDevice = false
         if let newDevice = devices.first(where: { added.contains($0.id) && !CADevices.isDisplay($0.id) }) {
             engine.setOutputDevice(newDevice.id)
+            followedNewDevice = true
         }
         knownDeviceIDs = ids
+
+        // Follow a default-output change made outside the app (Control Center,
+        // System Settings) without writing the default back. Skipped on the
+        // poll where we just set the default ourselves, in case the HAL hasn't
+        // surfaced that write yet.
+        let systemDefault = CADevices.defaultOutput()
+        if !followedNewDevice, systemDefault != engine.currentOutputID, ids.contains(systemDefault) {
+            engine.adoptOutputDevice(systemDefault)
+        }
 
         currentOutputID = engine.currentOutputID
         // If the current output vanished, fall back to the system default.

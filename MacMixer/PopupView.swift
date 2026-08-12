@@ -34,8 +34,12 @@ struct PopupView: View {
                 // output section's bottom padding + master's top padding.
                 Divider().padding(.horizontal, 12)
 
-                masterSection
-                Divider().padding(.horizontal, 12)
+                // Some outputs (HDMI/DisplayPort) have no hardware volume;
+                // don't show a slider that does nothing.
+                if model.hasMaster {
+                    masterSection
+                    Divider().padding(.horizontal, 12)
+                }
                 appsSection
                 resizeHandle
             }

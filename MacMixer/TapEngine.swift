@@ -88,6 +88,7 @@ final class TapEngine {
     func stop() {
         running = false
         teardownAggregate()
+        tappedProcObjs = []
     }
 
     // MARK: Output device
@@ -99,10 +100,17 @@ final class TapEngine {
     func setOutputDevice(_ id: AudioObjectID) -> Bool {
         guard id != AudioObjectID(kAudioObjectUnknown) else { return false }
         CADevices.setDefaultOutput(id)
+        adoptOutputDevice(id)
+        return true
+    }
+
+    /// Follow a device that is already the system default (changed in Control
+    /// Center / System Settings) without writing the default back.
+    func adoptOutputDevice(_ id: AudioObjectID) {
+        guard id != AudioObjectID(kAudioObjectUnknown), id != currentOutputID else { return }
         currentOutputID = id
         deviceVolume = DeviceVolume(id)
         if running { rebuildAggregate(targets: currentTargets) }
-        return true
     }
 
     // MARK: Master (output device hardware volume)
@@ -135,7 +143,6 @@ final class TapEngine {
         let targets = computeTapTargets()
         if Set(targets.map(\.procObj)) == Set(tappedProcObjs) { return }
         currentTargets = targets
-        tappedProcObjs = targets.map(\.procObj)
         rebuildAggregate(targets: targets)
     }
 
@@ -171,6 +178,10 @@ final class TapEngine {
 
     private func rebuildAggregate(targets: [TapTarget]) {
         teardownAggregate()
+        // Only commit `tappedProcObjs` once the rebuild fully succeeds, so a
+        // failed rebuild doesn't match the next poll's target set and wedge:
+        // setTrackedApps() will see a difference and retry.
+        tappedProcObjs = []
         guard running,
               currentOutputID != AudioObjectID(kAudioObjectUnknown),
               let outUID = CADevices.uid(currentOutputID) else { return }
@@ -179,6 +190,7 @@ final class TapEngine {
         var newTapIDs: [AudioObjectID] = []
         var tapUIDs: [String] = []
         var owners: [pid_t] = []
+        var tappedObjs: [AudioObjectID] = []
         for target in targets {
             let slot = newTapIDs.count
             if slot >= Self.maxTaps { break }
@@ -203,6 +215,7 @@ final class TapEngine {
             newTapIDs.append(tapID)
             tapUIDs.append(uid)
             owners.append(target.owner)
+            tappedObjs.append(target.procObj)
             gains[slot] = pidGain[target.owner] ?? 1.0
         }
 
@@ -211,7 +224,9 @@ final class TapEngine {
         tapCount.pointee = Int32(newTapIDs.count)
 
         guard !newTapIDs.isEmpty else {
-            // Nothing to tap right now; leave audio playing natively.
+            // Nothing to tap right now; leave audio playing natively. An empty
+            // target set is a legitimate steady state, so commit it.
+            tappedProcObjs = tappedObjs
             log.info("No tappable apps; aggregate not created")
             return
         }
@@ -262,6 +277,7 @@ final class TapEngine {
             teardownAggregate()
             return
         }
+        tappedProcObjs = tappedObjs
         log.info("aggregate running with \(newTapIDs.count) tap(s)")
     }
 
