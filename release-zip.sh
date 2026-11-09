@@ -4,7 +4,7 @@
 #   .build/MacMixer-<version>.zip  (MacMixer.app at the top level)
 # The in-app updater downloads this file. Upload it to a release with the tag
 # v<version>, for example:
-#   gh release create v2.2.0 .build/MacMixer-2.2.0.zip --title "MacMixer 2.2.0"
+#   gh release create v2.3.0 .build/MacMixer-2.3.0.zip --title "MacMixer 2.3.0"
 set -euo pipefail
 cd "$(dirname "$0")"
 

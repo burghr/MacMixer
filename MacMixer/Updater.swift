@@ -42,9 +42,28 @@ struct ReleaseInfo: Decodable, Equatable, Sendable {
     let draft: Bool
     let prerelease: Bool
     let assets: [ReleaseAsset]
+    /// The release notes (Markdown), if any.
+    let body: String?
 
     enum CodingKeys: String, CodingKey {
-        case tagName = "tag_name", htmlURL = "html_url", draft, prerelease, assets
+        case tagName = "tag_name", htmlURL = "html_url", draft, prerelease, assets, body
+    }
+
+    /// The release notes as plain text for a dialog: no Markdown marks, at
+    /// most 600 characters.
+    var shortNotes: String? {
+        guard let body, !body.isEmpty else { return nil }
+        var text = body.replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "`", with: "")
+            .replacingOccurrences(of: "\r", with: "")
+        text = text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+            var l = String(line)
+            while l.hasPrefix("#") { l.removeFirst() }
+            if l.hasPrefix("- ") { l = "• " + l.dropFirst(2) }
+            return l.trimmingCharacters(in: .whitespaces)
+        }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.count > 600 { text = String(text.prefix(600)) + "…" }
+        return text.isEmpty ? nil : text
     }
 
     /// "v2.1.0" -> "2.1.0"
@@ -292,9 +311,10 @@ enum AppUpdater {
 
 // MARK: - Controller (UI state + schedule)
 
-/// Checks at the start and every 6 hours. With "Install Updates Automatically"
-/// on (the default), it installs a new release and opens the new version.
-/// Otherwise it shows the update in the popover and in the menu.
+/// Checks at the start and every 6 hours ("Check for Updates Automatically",
+/// on by default). It never installs without the user's OK: a new release
+/// goes to `onUpdateFound`, and the app delegate asks the user. A version that
+/// the user skipped does not ask again; a newer version asks again.
 @MainActor
 final class UpdateController: ObservableObject {
     enum State: Equatable {
@@ -309,13 +329,18 @@ final class UpdateController: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var available: ReleaseInfo?
 
-    static let autoInstallKey = "autoInstallUpdates"
+    /// Called after an automatic check finds a version that the user did not
+    /// skip. The app delegate shows the dialog.
+    var onUpdateFound: ((ReleaseInfo) -> Void)?
+
+    static let autoCheckKey = "autoCheckUpdates"
+    static let skippedVersionKey = "skippedUpdateVersion"
     private static let interval: TimeInterval = 6 * 60 * 60
     private var timer: Timer?
 
-    var autoInstall: Bool {
-        get { UserDefaults.standard.object(forKey: Self.autoInstallKey) as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: Self.autoInstallKey); objectWillChange.send() }
+    var autoCheck: Bool {
+        get { UserDefaults.standard.object(forKey: Self.autoCheckKey) as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: Self.autoCheckKey); objectWillChange.send() }
     }
 
     var currentVersion: String { UpdateCheck.currentVersion }
@@ -323,11 +348,27 @@ final class UpdateController: ObservableObject {
     func start() {
         // Wait a short time after login, so the network is up.
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-            Task { await self?.check(manual: false) }
+            Task { await self?.automaticCheck() }
         }
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.check(manual: false) }
+            Task { @MainActor in await self?.automaticCheck() }
         }
+    }
+
+    private func automaticCheck() async {
+        guard autoCheck else { return }
+        await check(manual: false)
+        guard let release = available, case .available = state else { return }
+        if UserDefaults.standard.string(forKey: Self.skippedVersionKey) == release.version {
+            NSLog("[MacMixer] update %@ was skipped by the user; no prompt", release.version)
+            return
+        }
+        onUpdateFound?(release)
+    }
+
+    /// The user does not want this version. A newer version asks again.
+    func skip(_ release: ReleaseInfo) {
+        UserDefaults.standard.set(release.version, forKey: Self.skippedVersionKey)
     }
 
     /// Reads the latest release. An automatic check that fails stays quiet;
@@ -346,18 +387,14 @@ final class UpdateController: ObservableObject {
             available = latest
             state = .available(version: latest.version)
             NSLog("[MacMixer] update check: %@ is available (this is %@)", latest.version, currentVersion)
-            if autoInstall && !manual {
-                // Only from an Applications folder; a debug build only shows it.
-                if (try? AppUpdater.checkLocation(Bundle.main.bundleURL)) != nil {
-                    await install()
-                }
-            }
         } catch {
             NSLog("[MacMixer] update check failed: %@", error.localizedDescription)
             state = manual ? .failed(error.localizedDescription) : .idle
         }
     }
 
+    /// Installs the available release and restarts. Call only after the user
+    /// agreed.
     func install() async {
         guard let release = available else { return }
         state = .installing(version: release.version)

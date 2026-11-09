@@ -66,10 +66,16 @@ macOS 14.2 added a first-class **Core Audio process-tap API**
 
 ## Updates
 
-MacMixer checks the latest GitHub release when it starts and every 6 hours.
-With **Install Updates Automatically** on (the default, in the right-click
-menu), it downloads the new version, checks it, replaces itself, and opens
-again. The right-click menu also has **Check for Updates…**.
+MacMixer checks the latest GitHub release when it starts and every 6 hours
+(**Check for Updates Automatically** in the right-click menu, on by default).
+When it finds a new version, it asks you first:
+- **Install and Restart** downloads the new version, checks it, replaces
+  MacMixer, and opens it again.
+- **Later** asks again at the next check.
+- **Skip This Version** does not ask again until a newer version comes out.
+
+The right-click menu also has **Check for Updates…**, and the popover shows an
+**Update to x.y.z** button while an update is available.
 
 Before it installs, MacMixer checks that:
 - the SHA-256 of the download matches the checksum that GitHub shows,

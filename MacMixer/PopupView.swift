@@ -64,8 +64,8 @@ struct PopupView: View {
         .padding(.bottom, 6)
     }
 
-    /// A small button when a new release is available (shown when automatic
-    /// install is off, or when MacMixer cannot install it itself).
+    /// A small button when a new release is available. A click installs the
+    /// update and restarts MacMixer (the click is the user's OK).
     @ViewBuilder
     private var updateBadge: some View {
         switch updates.state {

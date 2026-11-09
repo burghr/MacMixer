@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPopover()
         model.start()
+        updates.onUpdateFound = { [weak self] release in self?.promptForUpdate(release) }
         updates.start()
     }
 
@@ -89,11 +90,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         check.target = self
         menu.addItem(check)
 
-        let auto = NSMenuItem(title: "Install Updates Automatically",
-                              action: #selector(toggleAutoInstall),
+        let auto = NSMenuItem(title: "Check for Updates Automatically",
+                              action: #selector(toggleAutoCheck),
                               keyEquivalent: "")
         auto.target = self
-        auto.state = updates.autoInstall ? .on : .off
+        auto.state = updates.autoCheck ? .on : .off
         menu.addItem(auto)
 
         let version = NSMenuItem(title: "Version \(updates.currentVersion)", action: nil, keyEquivalent: "")
@@ -121,29 +122,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await updates.install(); showUpdateFailureIfAny() }
     }
 
-    @objc private func toggleAutoInstall() {
-        updates.autoInstall.toggle()
+    @objc private func toggleAutoCheck() {
+        updates.autoCheck.toggle()
     }
 
-    /// A manual check always shows the result in an alert.
+    /// True while the update dialog is open, so a second check does not open
+    /// a second dialog.
+    private var updatePromptOpen = false
+
+    /// Asks the user about a new release. MacMixer installs only after
+    /// "Install and Restart".
+    private func promptForUpdate(_ release: ReleaseInfo) {
+        guard !updatePromptOpen else { return }
+        updatePromptOpen = true
+        defer { updatePromptOpen = false }
+
+        let alert = NSAlert()
+        alert.messageText = "MacMixer \(release.version) is available"
+        var text = "You have version \(updates.currentVersion). MacMixer restarts to install the update."
+        if let notes = release.shortNotes { text += "\n\n" + notes }
+        alert.informativeText = text
+        alert.addButton(withTitle: "Install and Restart")
+        alert.addButton(withTitle: "Later")
+        alert.addButton(withTitle: "Skip This Version")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            installUpdate()
+        case .alertThirdButtonReturn:
+            updates.skip(release)
+            NSLog("[MacMixer] user skipped update %@", release.version)
+        default:
+            NSLog("[MacMixer] user chose Later for update %@", release.version)
+        }
+    }
+
+    /// A manual check always shows the result.
     @objc private func checkForUpdates() {
         Task {
             await updates.check(manual: true)
+            if case .available = updates.state, let release = updates.available {
+                promptForUpdate(release)
+                return
+            }
             let alert = NSAlert()
             switch updates.state {
-            case .available(let version):
-                alert.messageText = "MacMixer \(version) is available"
-                alert.informativeText = "You have version \(updates.currentVersion)."
-                alert.addButton(withTitle: "Install and Restart")
-                alert.addButton(withTitle: "Release Notes")
-                alert.addButton(withTitle: "Later")
-                NSApp.activate(ignoringOtherApps: true)
-                switch alert.runModal() {
-                case .alertFirstButtonReturn: installUpdate()
-                case .alertSecondButtonReturn: updates.openReleasePage()
-                default: break
-                }
-                return
             case .upToDate:
                 alert.messageText = "MacMixer is up to date"
                 alert.informativeText = "Version \(updates.currentVersion) is the latest version."
