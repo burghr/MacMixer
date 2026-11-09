@@ -35,8 +35,8 @@ target.build_configurations.each do |config|
   s['GENERATE_INFOPLIST_FILE'] = 'NO'
   s['SWIFT_VERSION'] = '5.0'
   s['MACOSX_DEPLOYMENT_TARGET'] = '14.2'
-  s['MARKETING_VERSION'] = '2.0'
-  s['CURRENT_PROJECT_VERSION'] = '1'
+  s['MARKETING_VERSION'] = '2.2.0'
+  s['CURRENT_PROJECT_VERSION'] = '3'
   s['CODE_SIGN_STYLE'] = 'Manual'
   s['CODE_SIGN_IDENTITY'] = '-'        # ad-hoc / Sign to Run Locally
   s['DEVELOPMENT_TEAM'] = ''

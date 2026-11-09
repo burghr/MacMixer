@@ -117,9 +117,46 @@ final class TapEngine {
 
     var hasMasterVolume: Bool { deviceVolume?.hasVolume ?? false }
     var hasMute: Bool { deviceVolume?.hasMute ?? false }
-    func masterVolume() -> Float { deviceVolume?.volume() ?? 0 }
+
+    /// True after a failed master read, so the log shows one line per failure
+    /// and one line at recovery, not one line every poll.
+    private var masterReadFailing = false
+
+    /// The hardware volume of the output, or nil when the device cannot give
+    /// it now. Bluetooth devices (AirPods) can remove and add their volume
+    /// control when they change mode (for example, call mode for a Teams
+    /// call). After a failed read, examine the device again and read again.
+    func masterVolume() -> Float? {
+        guard let dv = deviceVolume else { return nil }
+        switch dv.volume() {
+        case .success(let v):
+            noteMasterRecovered()
+            return v
+        case .failure(let first):
+            let fresh = DeviceVolume(currentOutputID)
+            deviceVolume = fresh
+            if case .success(let v) = fresh.volume() {
+                noteMasterRecovered()
+                log.info("master volume control changed on device \(currentOutputID); re-read OK")
+                return v
+            }
+            if !masterReadFailing {
+                masterReadFailing = true
+                log.error("master volume read failed on device \(currentOutputID): \(CA.describe(first.status)); hasVolume now \(fresh.hasVolume)")
+            }
+            return nil
+        }
+    }
+
+    private func noteMasterRecovered() {
+        if masterReadFailing {
+            masterReadFailing = false
+            log.info("master volume read works again on device \(currentOutputID)")
+        }
+    }
+
     func setMasterVolume(_ v: Float) { deviceVolume?.setVolume(v) }
-    func isMuted() -> Bool { deviceVolume?.isMuted() ?? false }
+    func isMuted() -> Bool? { deviceVolume?.isMuted() }
     func setMuted(_ m: Bool) { deviceVolume?.setMuted(m) }
 
     // MARK: Per-app gain

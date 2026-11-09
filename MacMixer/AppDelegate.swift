@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = MixerModel()
+    private let updates = UpdateController()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
 
@@ -14,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPopover()
         model.start()
+        updates.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -73,6 +75,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(.separator())
 
+        if let release = updates.available {
+            let install = NSMenuItem(title: "Install MacMixer \(release.version)",
+                                     action: #selector(installUpdate),
+                                     keyEquivalent: "")
+            install.target = self
+            menu.addItem(install)
+        }
+
+        let check = NSMenuItem(title: "Check for Updates…",
+                               action: #selector(checkForUpdates),
+                               keyEquivalent: "")
+        check.target = self
+        menu.addItem(check)
+
+        let auto = NSMenuItem(title: "Install Updates Automatically",
+                              action: #selector(toggleAutoInstall),
+                              keyEquivalent: "")
+        auto.target = self
+        auto.state = updates.autoInstall ? .on : .off
+        menu.addItem(auto)
+
+        let version = NSMenuItem(title: "Version \(updates.currentVersion)", action: nil, keyEquivalent: "")
+        version.isEnabled = false
+        menu.addItem(version)
+
+        menu.addItem(.separator())
+
         let quit = NSMenuItem(title: "Quit MacMixer",
                               action: #selector(NSApp.terminate(_:)),
                               keyEquivalent: "q")
@@ -86,6 +115,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleLoginItem() {
         LoginItem.setEnabled(!LoginItem.isEnabled)
+    }
+
+    @objc private func installUpdate() {
+        Task { await updates.install(); showUpdateFailureIfAny() }
+    }
+
+    @objc private func toggleAutoInstall() {
+        updates.autoInstall.toggle()
+    }
+
+    /// A manual check always shows the result in an alert.
+    @objc private func checkForUpdates() {
+        Task {
+            await updates.check(manual: true)
+            let alert = NSAlert()
+            switch updates.state {
+            case .available(let version):
+                alert.messageText = "MacMixer \(version) is available"
+                alert.informativeText = "You have version \(updates.currentVersion)."
+                alert.addButton(withTitle: "Install and Restart")
+                alert.addButton(withTitle: "Release Notes")
+                alert.addButton(withTitle: "Later")
+                NSApp.activate(ignoringOtherApps: true)
+                switch alert.runModal() {
+                case .alertFirstButtonReturn: installUpdate()
+                case .alertSecondButtonReturn: updates.openReleasePage()
+                default: break
+                }
+                return
+            case .upToDate:
+                alert.messageText = "MacMixer is up to date"
+                alert.informativeText = "Version \(updates.currentVersion) is the latest version."
+            case .failed(let text):
+                alert.messageText = "The update check failed"
+                alert.informativeText = text
+            default:
+                return
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
+    }
+
+    private func showUpdateFailureIfAny() {
+        guard case .failed(let text) = updates.state else { return }
+        let alert = NSAlert()
+        alert.messageText = "MacMixer could not install the update"
+        alert.informativeText = text
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Open Release Page")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn { updates.openReleasePage() }
     }
 
     @objc private func openPrivacyPrefs() {
@@ -102,7 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // No animation so drag-to-resize tracks the cursor instead of easing.
         popover.animates = false
         popover.contentViewController = NSHostingController(
-            rootView: PopupView().environmentObject(model)
+            rootView: PopupView().environmentObject(model).environmentObject(updates)
         )
     }
 }

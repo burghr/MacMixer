@@ -56,22 +56,30 @@ macOS 14.2 added a first-class **Core Audio process-tap API**
 
 ## Install (no Xcode)
 
-1. Download `MacMixer.zip` from the
+1. Download `MacMixer-<version>.zip` from the
    [latest release](https://github.com/burghr/MacMixer/releases/latest), unzip it,
    and drag **MacMixer.app** into `/Applications`.
-2. MacMixer isn't notarized (it's an ad-hoc-signed personal project), so macOS
-   Gatekeeper blocks it the first time. To allow it:
-   - **macOS 15 (Sequoia) or later:** double-click MacMixer (it gets blocked),
-     then open **System Settings → Privacy & Security**, scroll to
-     *"MacMixer was blocked…"*, and click **Open Anyway**.
-   - **macOS 14 (Sonoma):** right-click (Control-click) MacMixer → **Open** →
-     **Open**.
-   - **Or in Terminal (any version):**
-     ```sh
-     xattr -dr com.apple.quarantine /Applications/MacMixer.app
-     ```
+2. Open MacMixer. Releases from 2.2.0 are signed with a Developer ID and
+   notarized by Apple, so Gatekeeper opens them without extra steps.
 3. Click the menu bar icon. The first time it controls an app, macOS asks to allow
    **audio recording** - grant it (see [Permissions](#permissions)).
+
+## Updates
+
+MacMixer checks the latest GitHub release when it starts and every 6 hours.
+With **Install Updates Automatically** on (the default, in the right-click
+menu), it downloads the new version, checks it, replaces itself, and opens
+again. The right-click menu also has **Check for Updates…**.
+
+Before it installs, MacMixer checks that:
+- the SHA-256 of the download matches the checksum that GitHub shows,
+- the app has the MacMixer bundle ID and the release version,
+- the app is signed by the MacMixer Developer ID (team `3YULF6FJ6W`) and
+  notarized by Apple.
+
+MacMixer updates itself only when it runs from `/Applications` or
+`~/Applications`. Version 2.0.0 has no updater: install a newer version by hand
+one time.
 
 ## Build from source
 
@@ -85,8 +93,13 @@ open -a MacMixer
 
 Requires **Xcode 15+**. The Xcode project is generated from `project.rb` (via the
 [xcodeproj](https://github.com/CocoaPods/Xcodeproj) gem) and is git-ignored. The
-Swift sources are the source of truth. The app is ad-hoc signed
-("Sign to Run Locally").
+Swift sources are the source of truth. `build.sh` signs the app with your
+"Developer ID Application" identity if the keychain has one, else with an
+ad-hoc signature. Set `MACMIXER_ADHOC=1` to force an ad-hoc signature.
+
+To make a release, run `./release-zip.sh`. It signs the app with the Developer
+ID, notarizes it (keychain profile `iodus-notary`, or set `NOTARY_PROFILE`),
+staples the ticket, and writes `.build/MacMixer-<version>.zip`.
 
 ## Permissions
 

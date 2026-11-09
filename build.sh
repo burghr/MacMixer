@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if [ ! -d MacMixer.xcodeproj ]; then
+if true; then  # always regenerate: new .swift files must join the project
     echo "Generating Xcode project…"
     ruby project.rb
 fi
@@ -23,6 +23,9 @@ if [ ! -d "$APP" ]; then
     echo "Build did not produce $APP" >&2
     exit 1
 fi
+
+source ./signing.sh
+sign_app "$APP"
 
 echo "Installing to /Applications…"
 killall MacMixer 2>/dev/null || true

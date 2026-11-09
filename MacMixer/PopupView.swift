@@ -5,6 +5,7 @@ import CoreAudio
 
 struct PopupView: View {
     @EnvironmentObject var model: MixerModel
+    @EnvironmentObject var updates: UpdateController
 
     private let width: CGFloat = 320
 
@@ -56,10 +57,47 @@ struct PopupView: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
             Spacer()
+            updateBadge
         }
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 6)
+    }
+
+    /// A small button when a new release is available (shown when automatic
+    /// install is off, or when MacMixer cannot install it itself).
+    @ViewBuilder
+    private var updateBadge: some View {
+        switch updates.state {
+        case .available(let version):
+            Button {
+                Task { await updates.install() }
+            } label: {
+                Label("Update to \(version)", systemImage: "arrow.down.circle.fill")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(Color.accentColor)
+            .help("Install MacMixer \(version) and restart")
+        case .installing(let version):
+            HStack(spacing: 4) {
+                ProgressView().controlSize(.mini)
+                Text("Installing \(version)…").font(.system(size: 11))
+            }
+            .foregroundStyle(.secondary)
+        case .failed(let text):
+            Button {
+                updates.openReleasePage()
+            } label: {
+                Label("Update failed", systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.orange)
+            .help(text + " Click to open the release page.")
+        default:
+            EmptyView()
+        }
     }
 
     // MARK: Output picker

@@ -175,10 +175,16 @@ final class MixerModel: ObservableObject {
     // MARK: Master
 
     func refreshMaster() {
+        // Read first: a failed read examines the device again, which can
+        // change hasMasterVolume / hasMute.
+        let volume = engine.masterVolume()
         hasMaster = engine.hasMasterVolume
-        if hasMaster { masterVolume = Double(engine.masterVolume()) }
+        // On a failed read, keep the last good value. Never show a failed
+        // read as volume 0.
+        if hasMaster, let volume { masterVolume = Double(volume) }
+        let mute = engine.isMuted()
         hasMute = engine.hasMute
-        if hasMute { muted = engine.isMuted() }
+        if hasMute, let mute { muted = mute }
     }
 
     func setMaster(_ value: Double) {

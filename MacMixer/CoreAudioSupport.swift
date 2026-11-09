@@ -35,13 +35,28 @@ enum CA {
     /// Read a fixed-size scalar property, returning `fallback` on failure.
     /// `T` must be a trivial (POD) CoreAudio type.
     static func scalar<T>(_ obj: AudioObjectID, _ addr: AudioObjectPropertyAddress, _ fallback: T) -> T {
+        let (status, value) = read(obj, addr, fallback)
+        return status == noErr ? value : fallback
+    }
+
+    /// Read a fixed-size scalar property and also return the OSStatus, so the
+    /// caller can tell a failed read from a real value.
+    static func read<T>(_ obj: AudioObjectID, _ addr: AudioObjectPropertyAddress, _ initial: T) -> (OSStatus, T) {
         var a = addr
-        var value = fallback
+        var value = initial
         var size = UInt32(MemoryLayout<T>.size)
         let status = withUnsafeMutablePointer(to: &value) {
             AudioObjectGetPropertyData(obj, &a, 0, nil, &size, $0)
         }
-        return status == noErr ? value : fallback
+        return (status, value)
+    }
+
+    /// An OSStatus as text, for example "'who?' (2003332927)".
+    static func describe(_ status: OSStatus) -> String {
+        let bytes = withUnsafeBytes(of: UInt32(bitPattern: status).bigEndian, Array.init)
+        let printable = bytes.allSatisfy { $0 >= 0x20 && $0 < 0x7F }
+        let code = printable ? "'\(String(decoding: bytes, as: UTF8.self))' " : ""
+        return "\(code)(\(status))"
     }
 
     @discardableResult
@@ -197,11 +212,16 @@ struct DeviceVolume {
     var hasVolume: Bool { !volumeElements.isEmpty }
     var hasMute: Bool { muteElement != nil }
 
-    func volume() -> Float {
-        guard let first = volumeElements.first else { return 0 }
+    /// The hardware volume, or the OSStatus of the failed read. A failed read
+    /// is not the same as 0: the caller must not show it as volume 0.
+    func volume() -> Result<Float, ReadError> {
+        guard let first = volumeElements.first else { return .failure(ReadError(status: 0)) }
         let scope = kAudioObjectPropertyScopeOutput
-        return CA.scalar(deviceID, CA.address(kAudioDevicePropertyVolumeScalar, scope, first), Float(0))
+        let (status, value) = CA.read(deviceID, CA.address(kAudioDevicePropertyVolumeScalar, scope, first), Float(0))
+        return status == noErr ? .success(value) : .failure(ReadError(status: status))
     }
+
+    struct ReadError: Error { let status: OSStatus }
 
     func setVolume(_ value: Float) {
         let scope = kAudioObjectPropertyScopeOutput
@@ -211,9 +231,11 @@ struct DeviceVolume {
         }
     }
 
-    func isMuted() -> Bool {
+    /// The mute state, or nil when the read failed.
+    func isMuted() -> Bool? {
         guard let el = muteElement else { return false }
-        return CA.scalar(deviceID, CA.address(kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, el), UInt32(0)) != 0
+        let (status, value) = CA.read(deviceID, CA.address(kAudioDevicePropertyMute, kAudioObjectPropertyScopeOutput, el), UInt32(0))
+        return status == noErr ? value != 0 : nil
     }
 
     func setMuted(_ muted: Bool) {
